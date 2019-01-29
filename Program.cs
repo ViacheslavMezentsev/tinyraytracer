@@ -12,16 +12,16 @@ namespace tinyraytracer
     {
         private static Vec3f Reflect( Vec3f I, Vec3f N ) 
         {
-            return I.sub( N.scale(2).scale( I.mul(N) ) );
+            return I - N * 2f * ( I * N );
         }
 
         // Snell's law
         private static Vec3f Refract( Vec3f I, Vec3f N, float eta_t, float eta_i = 1f ) 
         { 
-            var cosi = -Math.Max( -1f, Math.Min( 1, I.mul(N) ) );
+            var cosi = -Math.Max( -1f, Math.Min( 1, I * N ) );
 
             // if the ray comes from the inside the object, swap the air and the media.
-            if ( cosi < 0 ) return Refract( I, N.reverse(), eta_i, eta_t );
+            if ( cosi < 0 ) return Refract( I, -N, eta_i, eta_t );
 
             var eta = eta_i / eta_t;
 
@@ -29,7 +29,7 @@ namespace tinyraytracer
 
             // k < 0 = total reflection, no ray to refract. 
             // I refract it anyways, this has no physical meaning.
-            return k < 0 ? new Vec3f( 1, 0, 0 ) : I.scale( eta ).add( N.scale( eta * cosi - ( float ) Math.Sqrt(k) ) );
+            return k < 0 ? new Vec3f( 1, 0, 0 ) : I * eta + N * ( eta * cosi - ( float ) Math.Sqrt(k) );
         }
 
 
@@ -45,9 +45,9 @@ namespace tinyraytracer
                 {
                     spheresDist = disti;
 
-                    hit = orig.add( dir.scale( disti ) );
+                    hit = orig + dir * disti;
 
-                    N = hit.sub( sphere.Center ).normalize();
+                    N = ( hit - sphere.Center ).normalize();
 
                     material = sphere.Material;
                 }
@@ -60,7 +60,7 @@ namespace tinyraytracer
                 // The checkerboard plane has equation y = -4.
                 var d = - ( orig.y + 4 ) / dir.y; 
 
-                var pt = orig.add( dir.scale(d) );
+                var pt = orig + dir * d;
 
                 if ( d > 0 && Math.Abs( pt.x ) < 10 && pt.z < -10 && pt.z > -30 && d < spheresDist )
                 {
@@ -96,13 +96,13 @@ namespace tinyraytracer
             var refractDir = Refract( dir, N, material.RefIndex ).normalize();
 
             // Offset the original point to avoid occlusion by the object itself.
-            var nscl = N.scale( 1e-3f );
+            var nscl = N * 1e-3f;
             
-            var psub = point.sub( nscl );
-            var padd = point.add( nscl );
+            var psub = point - nscl;
+            var padd = point + nscl;
 
-            var reflectOrig = reflectDir.mul(N) < 0 ? psub : padd; 
-            var refractOrig = refractDir.mul(N) < 0 ? psub : padd;
+            var reflectOrig = reflectDir * N < 0 ? psub : padd; 
+            var refractOrig = refractDir * N < 0 ? psub : padd;
 
             var reflectColor = cast_ray( reflectOrig, reflectDir, spheres, lights, depth + 1 );
             var refractColor = cast_ray( refractOrig, refractDir, spheres, lights, depth + 1 );
@@ -111,12 +111,12 @@ namespace tinyraytracer
 
             foreach ( var light in lights )
             {
-                var lightDir = light.position.sub( point ).normalize();
+                var lightDir = ( light.position - point ).normalize();
             
-                var lightDistance = light.position.sub( point ).norm();
+                var lightDistance = ( light.position - point ).norm();
             
                 // Checking if the point lies in the shadow of the light.
-                var shadowOrig = lightDir.mul(N) < 0 ? psub : padd;
+                var shadowOrig = lightDir * N < 0 ? psub : padd;
             
                 var shadow_pt = new Vec3f();
                 var shadow_N = new Vec3f();
@@ -124,18 +124,17 @@ namespace tinyraytracer
             
                 var sceneIntersect = SceneIntersect( shadowOrig, lightDir, spheres, ref shadow_pt, ref shadow_N, ref tmpMaterial );
             
-                if ( sceneIntersect && shadow_pt.sub( shadowOrig ).norm() < lightDistance ) continue;
+                if ( sceneIntersect && ( shadow_pt- shadowOrig ).norm() < lightDistance ) continue;
             
-                diffuseLightIntensity += light.intensity * Math.Max( 0, lightDir.mul(N) );
+                diffuseLightIntensity += light.intensity * Math.Max( 0, lightDir * N );
             
-                specularLightIntensity += ( float ) Math.Pow( Math.Max( 0, -Reflect( lightDir.reverse(), N ).mul( dir ) ), material.SpecExp ) * light.intensity;
+                specularLightIntensity += ( float ) Math.Pow( Math.Max( 0, -Reflect( -lightDir, N ) * dir ), material.SpecExp ) * light.intensity;
             }
 
-            return material.DiffColor
-                .scale( diffuseLightIntensity * material.Albedo[0] )
-                .add( new Vec3f( 1, 1, 1 ).scale( specularLightIntensity * material.Albedo[1] ) )
-                .add( reflectColor.scale( material.Albedo[2] ) )
-                .add( refractColor.scale( material.Albedo[3] ) );
+            return material.DiffColor * diffuseLightIntensity * material.Albedo[0] 
+                + new Vec3f( 1, 1, 1 ) * specularLightIntensity * material.Albedo[1] 
+                + reflectColor * material.Albedo[2] 
+                + refractColor * material.Albedo[3];
         }
 
 
@@ -194,7 +193,7 @@ namespace tinyraytracer
 
                             var max = Math.Max( c[0], Math.Max( c[1], c[2] ) );
 
-                            if ( max > 1 ) c = c.scale( 1f / max );
+                            if ( max > 1 ) c = c / max;
 
                             targetRow[ x * pixelSize + 0 ] = ( byte ) ( 255 * Math.Max( 0f, Math.Min( 1f, c[2] ) ) );
                             targetRow[ x * pixelSize + 1 ] = ( byte ) ( 255 * Math.Max( 0f, Math.Min( 1f, c[1] ) ) );

@@ -31,13 +31,7 @@ namespace geometry
 
         public Vec3f normalize() 
         {
-            var v = scale( 1.0f / norm() );
-
-            x = v.x;
-            y = v.y;
-            z = v.z;
-
-            return this;
+            return this / norm();
         }
 
         public float[] ToArray()
@@ -45,29 +39,34 @@ namespace geometry
             return new[] { x, y, z };
         }
 
-        public Vec3f add( Vec3f other )
+        public static Vec3f operator +( Vec3f self, Vec3f other )
         {
-            return new Vec3f( x + other.x, y + other.y, z + other.z );
+            return new Vec3f( self.x + other.x, self.y + other.y, self.z + other.z );
         }
 
-        public Vec3f sub( Vec3f other )
+        public static Vec3f operator -( Vec3f self, Vec3f other )
         {
-            return new Vec3f( x - other.x, y - other.y, z - other.z );
+            return new Vec3f( self.x - other.x, self.y - other.y, self.z - other.z );
         }
 
-        public float mul( Vec3f other )
+        public static float operator *( Vec3f self, Vec3f other )
         {
-            return x * other.x + y * other.y + z * other.z;
+            return self.x * other.x + self.y * other.y + self.z * other.z;
         }
 
-        public Vec3f scale( float rhs )
+        public static Vec3f operator *( Vec3f self, float value )
         {
-            return new Vec3f( x * rhs, y * rhs, z * rhs );
+            return new Vec3f( self.x * value, self.y * value, self.z * value );
         }
 
-        public Vec3f reverse()
+        public static Vec3f operator /( Vec3f self, float value )
         {
-            return new Vec3f( -x, -y, -z );
+            return self * ( 1f / value );
+        }
+
+        public static Vec3f operator -( Vec3f self )
+        {
+            return self * -1f;
         }
     }
 }

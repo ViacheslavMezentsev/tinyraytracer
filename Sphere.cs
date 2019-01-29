@@ -18,11 +18,11 @@ namespace tinyraytracer
 
         public bool RayIntersect( Vec3f orig, Vec3f dir, ref float t0 )
         {
-            var L = Center.sub( orig );
+            var L = Center - orig;
 
-            var tca = L.mul( dir );
+            var tca = L * dir;
 
-            var d2 = L.mul(L) - tca * tca;
+            var d2 = L * L - tca * tca;
 
             if ( d2 > Radius * Radius ) return false;
 
